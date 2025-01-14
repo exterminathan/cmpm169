@@ -14,10 +14,11 @@ $(document).ready(() => {
   // Functions
 
   //Sample function
-  function myFunction(param1: any, param2: any) {
-    // some code here
-    // return results;
-  }
+  
+  // function myFunction(param1: any, param2: any) {
+  //   // some code here
+  //   // return results;
+  // }
 
   $('#fullscreen').click(()  => {
     if (!document.fullscreenElement) {
