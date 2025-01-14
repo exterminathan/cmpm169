@@ -8,5 +8,12 @@
   },
   "compilerOptions": {
     "lib": ["es2015", "dom", "dom.iterable", "esnext"]
+  },
+  "lint": {
+    "ignore": [
+      "src/experiment1", 
+      "src/experiment2",
+      "src/experiment3"
+    ]
   }
 }
