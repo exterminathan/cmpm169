@@ -1,4 +1,4 @@
-// sketch.js - p5.js implementation of perlin noise art
+// sketch.js - p5.js implementation of Perlin noise art
 // Author: Nathan Shturm
 // Date: 01.20.2025
 
@@ -25,151 +25,282 @@ limitations under the License.
 
 Modified by Nathan Shturm on 1.20
 **/
-/**
- * noise values (noise 3d) are used to animate a bunch of agents.
- *
- * KEYS
- * 1-2                 : switch noise mode
- * space               : new noise seed
- * backspace           : clear screen
- * s                   : save png
- */
 
-// Globals
-let agents = [];
-let agentCount = 4000;
-let noiseScale = 70; 
-let noiseStrength = 10;
-let noiseZRange = 0.7;
-let noiseZVelocity = 0.01;
-let overlayAlpha = 2;
-let agentAlpha = 100;
-let strokeWidth = .5;
-let drawMode = 1;
-let arcRadius = 30;
-let mouseForce = 600;
+class NoiseField {
+  constructor(config= {}) {
+      this.agentCount = config.agentCount || 4000;
+      this.noiseScale = config.noiseScale || 70;
+      this.noiseStrength = config.noiseStrength || 10;
+      this.noiseZRange = config.noiseZRange || 0.7;
+      this.noiseZVelocity = config.noiseZVelocity || 0.01;
+      this.overlayAlpha = config.overlayAlpha || 2;
+      this.agentAlpha = config.agentAlpha || 100;
+      this.strokeWidth = config.strokeWidth || 0.5;
+      this.arcRadius = config.arcRadius || 30;
+      this.mouseForce = config.mouseForce || 300;
+      this.drawMode = config.drawMode || 1;
+      this.hueMin = config.hueMin || 0;
+      this.hueMax = config.hueMax || 360;
 
-// Canvas container globals
-let canvasContainer;
+      this.agents = [];
+      this.initAgents();
+  }
 
-function resizeScreen() {
-    resizeCanvas(canvasContainer.width(), canvasContainer.height());
-}
+  initAgents() {
+      this.agents = [];
+      for (let i = 0; i < this.agentCount; i++) {
+          this.agents.push({
+              vector: createVector(random(width), random(height)),
+              vectorOld: createVector(random(width), random(height)),
+              stepSize: random(1, 5),
+              angle: 0,
+              noiseZ: random(this.noiseZRange),
+              hue: random(this.hueMin, this.hueMax),
+          });
+      }
+  }
 
-// Runs once on startup
-function setup() {
-    canvasContainer = $("#canvas-container");
-    let canvas = createCanvas(canvasContainer.width(), canvasContainer.height());
-    canvas.parent("canvas-container");
-
-    // Initialize agents
-    for (let i = 0; i < agentCount; i++) {
-        agents.push({
-            vector: createVector(random(width), random(height)),
-            vectorOld: createVector(random(width), random(height)),
-            stepSize: random(1, 5),
-            angle: 0,
-            noiseZ: random(noiseZRange),
-            hue: random(200, 240) // Initialize hue for coloring
-        });
+  updateAndDraw() {
+      for (let agent of this.agents) {
+        if (this.drawMode === 1) {
+          agent.angle = noise(agent.vector.x / this.noiseScale, agent.vector.y / this.noiseScale, agent.noiseZ) * this.noiseStrength;
+        } else if (this.drawMode === 2) {
+          let rawAngle = noise(agent.vector.x / this.noiseScale, agent.vector.y / this.noiseScale, agent.noiseZ) * 24;
+          agent.angle = (rawAngle - floor(rawAngle)) * this.noiseStrength;
+        }
+  
+        this.applyMouseRepulsion(agent);
+        this.drawAgent(agent);
+  
+        agent.vector.x += cos(agent.angle) * agent.stepSize;
+        agent.vector.y += sin(agent.angle) * agent.stepSize;
+  
+        this.wrapAgent(agent);
+  
+        agent.vectorOld.set(agent.vector);
+        agent.noiseZ += this.noiseZVelocity;
+        agent.hue = (agent.hue + 0.5) % 360;
+        if (agent.hue < this.hueMin || agent.hue > this.hueMax) {
+          agent.hue = random(this.hueMin, this.hueMax);
+        }
+      }
+    }
+  
+    applyMouseRepulsion(agent) {
+      let dx = agent.vector.x - mouseX;
+      let dy = agent.vector.y - mouseY;
+      let distance = sqrt(dx * dx + dy * dy);
+  
+      if (distance < this.mouseForce) {
+        let force = (this.mouseForce - distance) / this.mouseForce;
+        let fx = (dx / distance) * force * agent.stepSize;
+        let fy = (dy / distance) * force * agent.stepSize;
+        agent.vector.x += fx;
+        agent.vector.y += fy;
+      }
+    }
+  
+    drawAgent(agent) {
+      stroke(agent.hue, 80, 100, this.agentAlpha);
+      strokeWeight(this.strokeWidth * agent.stepSize);
+  
+      if (this.drawMode === 1) {
+        point(agent.vector.x, agent.vector.y);
+      } else if (this.drawMode === 2) {
+        let arcSpread = HALF_PI / 8;
+        let midX = (agent.vectorOld.x + agent.vector.x) / 2;
+        let midY = (agent.vectorOld.y + agent.vector.y) / 2;
+        let arcAngle = atan2(agent.vector.y - agent.vectorOld.y, agent.vector.x - agent.vectorOld.x);
+  
+        noFill();
+        stroke(agent.hue, 80, 100, this.agentAlpha);
+        strokeWeight(this.strokeWidth);
+        arc(midX, midY, this.arcRadius, this.arcRadius, arcAngle - arcSpread, arcAngle + arcSpread);
+      }
+    }
+  
+    wrapAgent(agent) {
+      if (agent.vector.x < -10) {
+        agent.vector.x = width + 10;
+        agent.vectorOld.x = agent.vector.x;
+      }
+      if (agent.vector.x > width + 10) {
+        agent.vector.x = -10;
+        agent.vectorOld.x = agent.vector.x;
+      }
+      if (agent.vector.y < -10) {
+        agent.vector.y = height + 10;
+        agent.vectorOld.y = agent.vector.y;
+      }
+      if (agent.vector.y > height + 10) {
+        agent.vector.y = -10;
+        agent.vectorOld.y = agent.vector.y;
+      }
+    }
+  
+    setDrawMode(mode) {
+      this.drawMode = mode;
     }
 
-    $(window).resize(function () {
-        resizeScreen();
+    setHueRange(hueMin, hueMax) {
+      this.hueMin = hueMin;
+      this.hueMax = hueMax;
+      this.agents.forEach(agent => {
+        agent.hue = random(this.hueMin, this.hueMax);
+      });
+    }
+}
+
+
+// Global variables
+let fields = [];
+let overlayAlpha = 2;
+let canvasContainer;
+
+
+// Input data Streams
+let weatherdata = { temperature: 25, windSpeed: 5};
+let cryptoData = { price: 30000};
+let currentTime = new Date().getHours();
+
+
+function updateDataStreams() {
+  // use curl request to open-meteo @ current location
+  //get current location from browser permissions
+  $.get("https://ipinfo.io", function(response) {
+    let loc = response.loc.split(",");
+    let lat = loc[0];
+    let lon = loc[1];
+    $.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`, function(data) {
+      weatherdata.temperature = data.current.temperature_2m;
+      weatherdata.windSpeed = data.current.wind_speed_10m;
     });
+  });
+
+  // use curl request to coingecko @ ETH
+  $.get("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd", function(data) {
+    cryptoData.price = data.ethereum.usd;
+  });
+
+  // get current time
+  currentTime = new Date().getSeconds();
+
+  console.log(`temp: ${weatherdata.temperature}`);
+  console.log(`wind: ${weatherdata.windSpeed}`);
+  console.log(`price: ${cryptoData.price}`);
+  console.log(`time: ${currentTime}`);
+  
+}
+
+function resizeScreen() {
+  resizeCanvas(canvasContainer.width(), canvasContainer.height());
+}
+
+function setup() {
+  canvasContainer = $("#canvas-container");
+  let canvas = createCanvas(canvasContainer.width(), canvasContainer.height());
+  canvas.parent("canvas-container");
+
+  colorMode(HSB, 360, 100, 100, 100);
+  background(255);
+
+  // noisefield1
+  fields.push(
+    new NoiseField({
+      agentCount: 500,
+      noiseScale: 60,
+      noiseStrength: 10,
+      noiseZRange: 0.6,
+      noiseZVelocity: 0.01,
+      agentAlpha: 100,
+      strokeWidth: 0.5,
+      arcRadius: 30,
+      mouseForce: 300,
+      drawMode: 1,
+      hueMin: 180,
+      hueMax: 220,
+    })
+  );
+
+  // noisefield2
+  fields.push(
+    new NoiseField({
+      agentCount: 500,
+      noiseScale: 80,
+      noiseStrength: 12,
+      noiseZRange: 1.0,
+      noiseZVelocity: 0.02,
+      agentAlpha: 60,
+      strokeWidth: 1.0,
+      arcRadius: 40,
+      mouseForce: 250,
+      drawMode: 1,
+      hueMin: 40,
+      hueMax: 40,
+    })
+  );
+
+  // noisefield3
+  fields.push(
+    new NoiseField({
+      agentCount: 500,
+      noiseScale: 50,
+      noiseStrength: 8,
+      noiseZRange: 0.5,
+      noiseZVelocity: 0.015,
+      agentAlpha: 80,
+      strokeWidth: 0.4,
+      arcRadius: 20,
+      mouseForce: 200,
+      drawMode: 1,
+      hueMin: 100,
+      hueMax: 140,
+    })
+  );
+
+  $(window).resize(function () {
     resizeScreen();
-    colorMode(HSB, 360, 100, 100, 100);
-    background(255);
+  });
+  resizeScreen();
 }
 
 function draw() {
-  // Draw a semi-transparent overlay
   fill(255, overlayAlpha);
   noStroke();
   rect(0, 0, width, height);
 
-  // Draw agents
-  // Source: most of the following math comes from Agent.js in the original project
-  // 
-  for (let agent of agents) {
-      if (drawMode === 1) {
-          agent.angle = noise(agent.vector.x / noiseScale, agent.vector.y / noiseScale, agent.noiseZ) * noiseStrength;
-      } else if (drawMode === 2) {
-          let rawAngle = noise(agent.vector.x / noiseScale, agent.vector.y / noiseScale, agent.noiseZ) * 24;
-          agent.angle = (rawAngle - floor(rawAngle)) * noiseStrength;
-      }
+  if (frameCount % 30 === 0) updateDataStreams();
 
-      // Mouse repulsion
-      let dx = agent.vector.x - mouseX;
-      let dy = agent.vector.y - mouseY;
-      let distance = sqrt(dx * dx + dy * dy);
+  // Mapped noiseScale and noiseStrength for first field based on temperature and wind speed
+  const mapNoiseScale = map(weatherdata.temperature, -10, 40, 20, 100);
+  fields[0].noiseScale = mapNoiseScale;
+  const mapNoiseStrength = map(weatherdata.windSpeed, 0, 20, 5, 20);
+  fields[0].noiseStrength = mapNoiseStrength;
 
-      if (distance < mouseForce) {
-          let force = (mouseForce - distance) / mouseForce;
-          let fx = (dx / distance) * force * agent.stepSize;
-          let fy = (dy / distance) * force * agent.stepSize;
-          agent.vector.x += fx;
-          agent.vector.y += fy;
-      }
+  // Mapped agent count for second field based on crypto price
+  const mapAgentCount = map(cryptoData.price, 0, 60000, 100, 1000);
+  fields[1].agentCount = mapAgentCount;
 
-      // Draw agents based on draw mode
-      stroke(agent.hue, 80, 100, agentAlpha);
-      strokeWeight(strokeWidth * agent.stepSize);
+  // Mapped hue for third field based on time
+  const mapHue = map(currentTime, 0, 59, 0, 360);
+  fields[2].setHueRange(mapHue - 20, mapHue + 20);
 
-      if (drawMode === 1) {
-          point(agent.vector.x, agent.vector.y);
-      } else if (drawMode === 2) {
-        // arcs form instead of lines
-        let arcSpread = HALF_PI / 8;
-    
-        let midX = (agent.vectorOld.x + agent.vector.x) / 2;
-        let midY = (agent.vectorOld.y + agent.vector.y) / 2;
-    
-        let arcAngle = atan2(agent.vector.y - agent.vectorOld.y, agent.vector.x - agent.vectorOld.x);
-    
-        // Draw the arc
-        stroke(agent.hue, 80, 100, agentAlpha);
-        noFill();
-        strokeWeight(strokeWidth);
-        arc(midX, midY, arcRadius, arcRadius, arcAngle - arcSpread, arcAngle + arcSpread);
-    }
-
-      // Update agent position
-      agent.vector.x += cos(agent.angle) * agent.stepSize;
-      agent.vector.y += sin(agent.angle) * agent.stepSize;
-
-      // Wrap agents to screen boundaries
-      if (agent.vector.x < -10) agent.vector.x = agent.vectorOld.x = width + 10;
-      if (agent.vector.x > width + 10) agent.vector.x = agent.vectorOld.x = -10;
-      if (agent.vector.y < -10) agent.vector.y = agent.vectorOld.y = height + 10;
-      if (agent.vector.y > height + 10) agent.vector.y = agent.vectorOld.y = -10;
-
-      // Update old position for smooth trails
-      agent.vectorOld.set(agent.vector);
-
-      // Increment noise Z value for dynamic movement
-      agent.noiseZ += noiseZVelocity;
-
-      // Increment hue for gradient effect
-      agent.hue = (agent.hue + 0.5) % 360;
-      if (agent.hue < 200) agent.hue = 200;
-  }
+  // Update and redraw all fields
+  fields.forEach((field) => {
+    field.updateAndDraw();
+  });
 }
 
 
 function keyReleased(event) {
-    if (key === 's' || key === 'S') saveCanvas('p5-noise-art', 'png');
-    if (key === '1') {
-        drawMode = 1;
-    }
-    if (key === '2') {
-        drawMode = 2;
-    }
-    if (key === ' ') {
-        event.preventDefault();
-        let newNoiseSeed = floor(random(10000));
-        console.log('newNoiseSeed', newNoiseSeed);
-        noiseSeed(newNoiseSeed);
-    }
-    if (keyCode === DELETE || keyCode === BACKSPACE) background(255);
+  if (key === 's' || key === 'S') saveCanvas('p5-noise-art', 'png');
+  if (key === '1') fields.forEach((field) => field.setDrawMode(1));
+  if (key === '2') fields.forEach((field) => field.setDrawMode(2));
+  if (key === ' ') {
+    event.preventDefault();
+    let newSeed = floor(random(10000));
+    console.log('newNoiseSeed', newSeed);
+    noiseSeed(newSeed);
+  }
+  if (keyCode === DELETE || keyCode === BACKSPACE) background(255);
 }
