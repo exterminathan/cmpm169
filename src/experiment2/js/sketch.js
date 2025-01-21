@@ -1,79 +1,130 @@
-// sketch.js - purpose and description here
-// Author: Your Name
-// Date:
+// sketch.js - p5.js implementation of perlin noise art
+// Author: Nathan Shturm
+// Date: 01.20.2025
 
-// Here is how you might set up an OOP p5.js project
-// Note that p5.js looks for a file called sketch.js
+// LICENSES
+/** M_1_5_03
 
-// Constants - User-servicable parts
-// In a longer project I like to put these in a separate file
-const VALUE1 = 1;
-const VALUE2 = 2;
+Generative Gestaltung – Creative Coding im Web
+ISBN: 978-3-87439-902-9, First Edition, Hermann Schmidt, Mainz, 2018
+Benedikt Groß, Hartmut Bohnacker, Julia Laub, Claudius Lazzeroni
+with contributions by Joey Lee and Niels Poldervaart
+Copyright 2018
+
+http://www.generative-gestaltung.de
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+
+Modified by Nathan Shturm on 1.20.2025
+**/
+
+/**
+ * noise values (noise 3d) are used to animate a bunch of agents.
+ *
+ * KEYS
+ * 1-2                 : switch noise mode
+ * space               : new noise seed
+ * backspace           : clear screen
+ * s                   : save png
+ */
+
 
 // Globals
-let myInstance;
+let agents = [];
+let agentCount = 4000;
+let noiseScale = 100; 
+let noiseStrength = 10;
+let noiseZRange = 0.4;
+let noiseZVelocity = 0.01;
+let overlayAlpha = 10;
+let agentAlpha = 90;
+let strokeWidth = 0.3;
+let drawMode = 1;
+
+// Canvas container globals
 let canvasContainer;
-var centerHorz, centerVert;
-
-class MyClass {
-    constructor(param1, param2) {
-        this.property1 = param1;
-        this.property2 = param2;
-    }
-
-    myMethod() {
-        // code to run when method is called
-    }
-}
+let centerHorz, centerVert;
+let rotationDirection = 1; 
 
 function resizeScreen() {
-  centerHorz = canvasContainer.width() / 2; // Adjusted for drawing logic
-  centerVert = canvasContainer.height() / 2; // Adjusted for drawing logic
-  console.log("Resizing...");
-  resizeCanvas(canvasContainer.width(), canvasContainer.height());
-  // redrawCanvas(); // Redraw everything based on new size
+    centerHorz = canvasContainer.width() / 2;
+    centerVert = canvasContainer.height() / 2;
+    console.log("Resizing...");
+    resizeCanvas(canvasContainer.width(), canvasContainer.height());
 }
 
-// setup() function is called once when the program starts
+//Runs once on startup
 function setup() {
-  // place our canvas, making it fit our container
-  canvasContainer = $("#canvas-container");
-  let canvas = createCanvas(canvasContainer.width(), canvasContainer.height());
-  canvas.parent("canvas-container");
-  // resize canvas is the page is resized
+    canvasContainer = $("#canvas-container");
+    let canvas = createCanvas(canvasContainer.width(), canvasContainer.height());
+    canvas.parent("canvas-container");
 
-  // create an instance of the class
-  myInstance = new MyClass("VALUE1", "VALUE2");
 
-  $(window).resize(function() {
+    for (let i = 0; i < agentCount; i++) {
+        agents.push({
+          x: random(width),
+          y: random(height),
+          z: random(noiseZRange)
+        });
+    }
+
+    $(window).resize(function() {
+        resizeScreen();
+    });
     resizeScreen();
-  });
-  resizeScreen();
+    background(255);
 }
 
-// draw() function is called repeatedly, it's the main animation loop
 function draw() {
-  background(220);    
-  // call a method on the instance
-  myInstance.myMethod();
-
-  // Set up rotation for the rectangle
-  push(); // Save the current drawing context
-  translate(centerHorz, centerVert); // Move the origin to the rectangle's center
-  rotate(frameCount / 100.0); // Rotate by frameCount to animate the rotation
-  fill(234, 31, 81);
+  // Draw a semi-transparent overlay
+  fill(255, overlayAlpha);
   noStroke();
-  rect(-125, -125, 250, 250); // Draw the rectangle centered on the new origin
-  pop(); // Restore the original drawing context
+  rect(0, 0, width, height);
 
-  // The text is not affected by the translate and rotate
-  fill(255);
-  textStyle(BOLD);
-  textSize(140);
-  text("p5*", centerHorz - 105, centerVert + 40);
+  // Draw agents
+  stroke(0, agentAlpha);
+  for (let agent of agents) {
+      let angle = noise(agent.x / noiseScale, agent.y / noiseScale, agent.z) * TWO_PI * noiseStrength;
+
+      if (drawMode === 1) {
+          strokeWeight(strokeWidth);
+          point(agent.x, agent.y);
+      } else if (drawMode === 2) {
+          strokeWeight(strokeWidth);
+          line(agent.x, agent.y, agent.x + cos(angle), agent.y + sin(angle));
+      }
+
+      // Update agent position
+      agent.x += cos(angle);
+      agent.y += sin(angle);
+      agent.z += noiseZVelocity;
+
+      // Wrap agents to screen boundaries
+      if (agent.x < 0 || agent.x > width || agent.y < 0 || agent.y > height) {
+          agent.x = random(width);
+          agent.y = random(height);
+          agent.z = random(noiseZRange);
+      }
+  }
 }
 
-// mousePressed() function is called once after every time a mouse button is pressed
-function mousePressed() {
-    // code to run when mouse is pressed
+function keyReleased(event) {
+  if (key === 's' || key === 'S') saveCanvas('p5-noise-art', 'png');
+  if (key === '1') drawMode = 1;
+  if (key === '2') drawMode = 2;
+  if (key === ' ') {
+      event.preventDefault();
+      let newNoiseSeed = floor(random(10000));
+      console.log('newNoiseSeed', newNoiseSeed);
+      noiseSeed(newNoiseSeed);
+  }
+  if (keyCode === DELETE || keyCode === BACKSPACE) background(255);
 }
