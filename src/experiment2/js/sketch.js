@@ -269,7 +269,7 @@ function draw() {
   noStroke();
   rect(0, 0, width, height);
 
-  if (frameCount % 30 === 0) updateDataStreams();
+  if (frameCount % 60 === 0) updateDataStreams();
 
   // Mapped noiseScale and noiseStrength for first field based on temperature and wind speed
   const mapNoiseScale = map(weatherdata.temperature, -10, 40, 20, 100);
