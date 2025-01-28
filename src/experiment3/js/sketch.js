@@ -24,64 +24,98 @@
 
 
 let canvasContainer;
+let bg_color;
+
+
 var maxCount = 5000; // max count of the cirlces
 var currentCount = 1;
+
+let growthSpeed = 1;
+let frameCt = 0;
+
 var x = [];
 var y = [];
 var r = [];
+
+let rustFactors = [];
+let rustAdjustRate = 0.001;
+let startColor;
+let endColor;
 
 function setup() {
   canvasContainer = $('#canvas-container');
   let canvas = createCanvas(canvasContainer.width(), canvasContainer.height());
   canvas.parent("canvas-container");
   strokeWeight(0.5);
+  noStroke();
 
-  // first circle
-  x[0] = width / 2;
-  y[0] = height / 2;
-  r[0] = 10;
+  bg_color = random(150, 220);
+  background(bg_color);
+
+  startColor = color('#B76B0E');
+  endColor = color('#B7330E');
+
+  initRustFormation(width / 2, height / 2);
+
 }
 
+
 function draw() {
-  clear();
+  // customizable speed/frame counter
+  frameCt++;
+  if (frameCt < growthSpeed) {
+    return;
+  }
+  frameCt = 0; // Reset counter after growth
 
-  // create a random set of parameters
-  var newR = random(1, 7);
-  var newX = random(newR, width - newR);
-  var newY = random(newR, height - newR);
+  // Add a new circle if possible
+  if (currentCount < maxCount) {
+    var newR = random(.4, 3);
+    var newX = random(newR, width - newR);
+    var newY = random(newR, height - newR);
 
-  var closestDist = Number.MAX_VALUE;
-  var closestIndex = 0;
-  // which circle is the closest?
-  for (var i = 0; i < currentCount; i++) {
-    var newDist = dist(newX, newY, x[i], y[i]);
-    if (newDist < closestDist) {
-      closestDist = newDist;
-      closestIndex = i;
+    var closestDist = Number.MAX_VALUE;
+    var closestIndex = 0;
+
+    // Find the closest circle
+    for (var i = 0; i < currentCount; i++) {
+      var newDist = dist(newX, newY, x[i], y[i]);
+      if (newDist < closestDist) {
+        closestDist = newDist;
+        closestIndex = i;
+      }
     }
+
+    // Align it to the closest circle outline
+    var angle = atan2(newY - y[closestIndex], newX - x[closestIndex]);
+    x[currentCount] = x[closestIndex] + cos(angle) * (r[closestIndex] + newR);
+    y[currentCount] = y[closestIndex] + sin(angle) * (r[closestIndex] + newR);
+    r[currentCount] = newR;
+    rustFactors[currentCount] = 0;
+    currentCount++;
   }
 
-  // show original position of the circle and a line to the new position
-  // fill(230);
-  // ellipse(newX, newY, newR * 2, newR * 2);
-  // line(newX, newY, x[closestIndex], y[closestIndex]);
-
-  // align it to the closest circle outline
-  var angle = atan2(newY - y[closestIndex], newX - x[closestIndex]);
-
-  x[currentCount] = x[closestIndex] + cos(angle) * (r[closestIndex] + newR);
-  y[currentCount] = y[closestIndex] + sin(angle) * (r[closestIndex] + newR);
-  r[currentCount] = newR;
-  currentCount++;
-
-  // draw them
+  // Draw all circles
   for (var i = 0; i < currentCount; i++) {
-    fill(50);
+    rustFactors[i] = min(rustFactors[i] + rustAdjustRate, 1);
+    let rustColor = lerpColor(startColor, endColor, rustFactors[i]);
+
+    fill(rustColor);
     ellipse(x[i], y[i], r[i] * 2, r[i] * 2);
   }
 
   if (currentCount >= maxCount) noLoop();
 }
+
+function initRustFormation(startX, startY) {
+  x = [startX];
+  y = [startY];
+  r = [1];
+  rustFactors = [0];
+  currentCount = 1;
+  loop();
+}
+
 
 function keyReleased() {
   if (key == 's' || key == 'S') saveCanvas(gd.timestamp(), 'png');
