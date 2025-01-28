@@ -27,20 +27,19 @@ let canvasContainer;
 let bg_color;
 
 
-var maxCount = 5000; // max count of the cirlces
-var currentCount = 1;
+var maxCount = 5000;
+let paused = false;
 
 let growthSpeed = 1;
 let frameCt = 0;
 
-var x = [];
-var y = [];
-var r = [];
-
-let rustFactors = [];
+let rustClusters = [];
 let rustAdjustRate = 0.001;
+
 let startColor;
 let endColor;
+
+let mode = "none";
 
 function setup() {
   canvasContainer = $('#canvas-container');
@@ -49,13 +48,13 @@ function setup() {
   strokeWeight(0.5);
   noStroke();
 
-  bg_color = random(150, 220);
+  bg_color = random(200, 230);
   background(bg_color);
 
   startColor = color('#B76B0E');
   endColor = color('#B7330E');
 
-  initRustFormation(width / 2, height / 2);
+  addRustCluster(width / 2, height / 2);
 
 }
 
@@ -66,59 +65,137 @@ function draw() {
   if (frameCt < growthSpeed) {
     return;
   }
-  frameCt = 0; // Reset counter after growth
+  frameCt = 0;
 
-  // Add a new circle if possible
-  if (currentCount < maxCount) {
-    var newR = random(.4, 3);
-    var newX = random(newR, width - newR);
-    var newY = random(newR, height - newR);
+  for (let cluster of rustClusters) {
+    // add new abstract to the current cluster if possible
+    if (cluster.currentCount < maxCount) {
+      let newR = random(0.4, 3);
+      let newX = random(newR, width - newR);
+      let newY = random(newR, height - newR);
 
-    var closestDist = Number.MAX_VALUE;
-    var closestIndex = 0;
+      let closestDist = Number.MAX_VALUE;
+      let closestIndex = 0;
 
-    // Find the closest circle
-    for (var i = 0; i < currentCount; i++) {
-      var newDist = dist(newX, newY, x[i], y[i]);
-      if (newDist < closestDist) {
-        closestDist = newDist;
-        closestIndex = i;
+      // find the closest abstract in the cluster
+      for (let i = 0; i < cluster.currentCount; i++) {
+        let newDist = dist(newX, newY, cluster.x[i], cluster.y[i]);
+        if (newDist < closestDist) {
+          closestDist = newDist;
+          closestIndex = i;
+        }
       }
+
+      // align the new abstract to the closest abstract
+      let angle = atan2(newY - cluster.y[closestIndex], newX - cluster.x[closestIndex]);
+      cluster.x.push(cluster.x[closestIndex] + cos(angle) * (cluster.r[closestIndex] + newR));
+      cluster.y.push(cluster.y[closestIndex] + sin(angle) * (cluster.r[closestIndex] + newR));
+      cluster.r.push(newR);
+      cluster.rustFactors.push(0);
+      cluster.currentCount++;
     }
 
-    // Align it to the closest circle outline
-    var angle = atan2(newY - y[closestIndex], newX - x[closestIndex]);
-    x[currentCount] = x[closestIndex] + cos(angle) * (r[closestIndex] + newR);
-    y[currentCount] = y[closestIndex] + sin(angle) * (r[closestIndex] + newR);
-    r[currentCount] = newR;
-    rustFactors[currentCount] = 0;
-    currentCount++;
+    // draw all abstracts in the cluster
+    for (let i = 0; i < cluster.currentCount; i++) {
+      cluster.rustFactors[i] = min(cluster.rustFactors[i] + rustAdjustRate, 1);
+      let rustColor = lerpColor(startColor, endColor, cluster.rustFactors[i]);
+
+      fill(rustColor);
+      drawAbstract(cluster.x[i], cluster.y[i], cluster.r[i]);
+    }
   }
-
-  // Draw all circles
-  for (var i = 0; i < currentCount; i++) {
-    rustFactors[i] = min(rustFactors[i] + rustAdjustRate, 1);
-    let rustColor = lerpColor(startColor, endColor, rustFactors[i]);
-
-    fill(rustColor);
-    ellipse(x[i], y[i], r[i] * 2, r[i] * 2);
-  }
-
-  if (currentCount >= maxCount) noLoop();
 }
 
-function initRustFormation(startX, startY) {
-  x = [startX];
-  y = [startY];
-  r = [1];
-  rustFactors = [0];
-  currentCount = 1;
+
+function mousePressed() {
+  if (mode === "spray") {
+    sprayWater(mouseX, mouseY, 20, 2);
+  } else if (mode === "scrub") {
+    scrubRust(mouseX, mouseY, 20);
+  }
+}
+
+function addRustCluster(startX, startY) {
+  rustClusters.push({
+    x: [startX],
+    y: [startY], 
+    r: [1],
+    rustFactors: [0],
+    currentCount: 1
+  });
   loop();
 }
 
 
-function keyReleased() {
-  if (key == 's' || key == 'S') saveCanvas(gd.timestamp(), 'png');
+function drawAbstract(cX, cY, size) {
+  beginShape();
+  let numPoints = int(random(7, 13));
+
+  for (let i = 0; i < numPoints; i++) {
+    let angle = random(TWO_PI);
+    let rad = size * random(0.5, 1.5);
+    let x = cX + cos(angle) * rad;
+    let y = cY + sin(angle) * rad;
+    vertex(x, y);
+  }
+
+  endShape(CLOSE);
+}
+
+function sprayWater(x, y, radius, ct) {
+  for (let i = 0; i < ct; i++) {
+    let angle = random(TWO_PI);
+    let distFromCenter = random(radius);
+    let newX = x + cos(angle) * distFromCenter;
+    let newY = y + sin(angle) * distFromCenter;
+
+    addRustCluster(newX, newY);
+  }
+
+}
+
+function scrubRust(x, y, radius) {
+  for (let cluster of rustClusters) {
+    for (let i = cluster.currentCount - 1; i >= 0; i--) {
+      let d = dist(x, y, cluster.x[i], cluster.y[i]);
+      if (d < radius) {
+        cluster.x.splice(i, 1);
+        cluster.y.splice(i, 1);
+        cluster.r.splice(i, 1);
+        cluster.rustFactors.splice(i, 1);
+        cluster.currentCount--;
+      }
+    }
+  }
+  redrawCanvas();
+}
+
+function redrawCanvas() {
+  background(bg_color);
+  for (let cluster of rustClusters) {
+    for (let i = 0; i < cluster.currentCount; i++) {
+      let rustColor = lerpColor(startColor, endColor, cluster.rustFactors[i]);
+      fill(rustColor);
+      drawAbstract(cluster.x[i], cluster.y[i], cluster.r[i]);
+    }
+  }
+}
+
+
+// Canvas controls //
+function keyPressed() {
+  if (key === '1') {
+    mode = "spray";
+  } else if (key === '2') {
+    mode = "scrub";
+  } else if (key === 'p' || key === 'P') {
+    paused = !paused;
+    if (paused) {
+      noLoop();
+    } else {
+      loop();
+    }
+  }
 }
 
 
