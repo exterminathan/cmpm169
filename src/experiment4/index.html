@@ -27,6 +27,22 @@
 				<div id="canvas-container"></div>
 			</div>
 
+			<!-- Controls for edge detection parameters (below the canvas) -->
+			<div class="minor-section" id="controls">
+				<label for="thresholdSlider">
+				  Threshold: <span id="thresholdValue">20</span>
+				</label>
+				<input type="range" id="thresholdSlider" min="0" max="255" value="20">
+				<br>
+				<label for="thicknessSlider">
+				  Thickness: <span id="thicknessValue">2</span>
+				</label>
+				<input type="range" id="thicknessSlider" min="1" max="10" value="2">
+				<br>
+				<label for="colorPicker">Edge Color:</label>
+				<input type="color" id="colorPicker" value="#ffffff">
+			</div>
+
 			<div class="minor-section">
 				<h2>Description</h2>
 				<p></p>

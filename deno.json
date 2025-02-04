@@ -13,7 +13,8 @@
     "exclude": [
       "src/experiment1", 
       "src/experiment2",
-      "src/experiment3"
+      "src/experiment3",
+      "src/experiment4"
     ]
   }
 }
