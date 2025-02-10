@@ -171,7 +171,7 @@ function setup() {
 }
 
 function draw() {
-  background(30);
+  background(240);
 
   angleY += cameraRotation;
   let radius = 1000;
